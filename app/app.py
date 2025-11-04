@@ -4,6 +4,7 @@ from .state import LocalAuthState, MyGoogleAuthState
 from .states.admin_state import AdminState
 from .states.event_state import EventState
 from .states.group_state import GroupState
+from .states.payment_state import PaymentState
 
 
 def login_form() -> rx.Component:
@@ -194,6 +195,12 @@ def sidebar() -> rx.Component:
                 class_name="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900",
             ),
             rx.el.a(
+                rx.icon("credit-card", class_name="w-5 h-5"),
+                "Payments",
+                href="/payments",
+                class_name="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900",
+            ),
+            rx.el.a(
                 rx.icon("lock", class_name="w-5 h-5"),
                 "Change Password",
                 href="/change-password",
@@ -222,6 +229,12 @@ def sidebar() -> rx.Component:
                         rx.icon("user-plus", class_name="w-5 h-5"),
                         "Manage Groups",
                         href="/admin/groups",
+                        class_name="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900",
+                    ),
+                    rx.el.a(
+                        rx.icon("dollar-sign", class_name="w-5 h-5"),
+                        "Manage Payments",
+                        href="/admin/payments",
                         class_name="flex items-center gap-3 rounded-lg px-3 py-2 text-gray-500 transition-all hover:text-gray-900",
                     ),
                 ),
@@ -695,6 +708,182 @@ def groups_page() -> rx.Component:
     )
 
 
+def payments_page() -> rx.Component:
+    return dashboard_layout(
+        rx.el.div(
+            rx.el.h1("My Payments", class_name="text-2xl font-bold mb-6"),
+            rx.cond(
+                PaymentState.payments,
+                rx.el.div(
+                    rx.el.table(
+                        rx.el.thead(
+                            rx.el.tr(
+                                rx.el.th("Date", class_name="px-4 py-2 text-left"),
+                                rx.el.th("Amount", class_name="px-4 py-2 text-left"),
+                                rx.el.th("Type", class_name="px-4 py-2 text-left"),
+                                rx.el.th(
+                                    "Months Covered", class_name="px-4 py-2 text-left"
+                                ),
+                            )
+                        ),
+                        rx.el.tbody(
+                            rx.foreach(
+                                PaymentState.payments,
+                                lambda payment: rx.el.tr(
+                                    rx.el.td(
+                                        payment.payment_date.to_string(),
+                                        class_name="border-t px-4 py-2",
+                                    ),
+                                    rx.el.td(
+                                        f"${payment.amount:.2f}",
+                                        class_name="border-t px-4 py-2",
+                                    ),
+                                    rx.el.td(
+                                        payment.payment_type,
+                                        class_name="border-t px-4 py-2",
+                                    ),
+                                    rx.el.td(
+                                        payment.months_covered,
+                                        class_name="border-t px-4 py-2",
+                                    ),
+                                    class_name="hover:bg-gray-50",
+                                ),
+                            )
+                        ),
+                        class_name="w-full text-left table-auto",
+                    ),
+                    class_name="bg-white p-4 rounded-lg shadow-sm border",
+                ),
+                rx.el.p("You have no payment history."),
+            ),
+        )
+    )
+
+
+def admin_payments_page() -> rx.Component:
+    def payment_status_badge(status: rx.Var[str]) -> rx.Component:
+        return rx.el.span(
+            status,
+            class_name=rx.match(
+                status,
+                (
+                    "Current",
+                    "bg-green-100 text-green-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full",
+                ),
+                (
+                    "Due soon",
+                    "bg-yellow-100 text-yellow-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full",
+                ),
+                (
+                    "Overdue",
+                    "bg-red-100 text-red-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full",
+                ),
+                "bg-gray-100 text-gray-800 text-xs font-medium me-2 px-2.5 py-0.5 rounded-full",
+            ),
+        )
+
+    return dashboard_layout(
+        rx.el.div(
+            rx.el.h1("Manage Payments", class_name="text-2xl font-bold mb-6"),
+            rx.el.div(
+                rx.el.div(
+                    rx.el.h2("Record Payment", class_name="text-xl font-semibold mb-4"),
+                    rx.el.form(
+                        rx.el.select(
+                            rx.foreach(
+                                PaymentState.all_users,
+                                lambda user: rx.el.option(
+                                    f"{user.name} ({user.email})", value=user.id
+                                ),
+                            ),
+                            name="user_id",
+                            placeholder="Select User",
+                            class_name="w-full p-2 border rounded mb-2",
+                        ),
+                        rx.el.input(
+                            name="amount",
+                            placeholder="Amount",
+                            type="number",
+                            step="0.01",
+                            class_name="w-full p-2 border rounded mb-2",
+                        ),
+                        rx.el.input(
+                            name="payment_date",
+                            type="date",
+                            class_name="w-full p-2 border rounded mb-2",
+                        ),
+                        rx.el.input(
+                            name="months_covered",
+                            placeholder="Months Covered",
+                            type="number",
+                            default_value=1,
+                            class_name="w-full p-2 border rounded mb-4",
+                        ),
+                        rx.el.button(
+                            "Record Payment",
+                            type="submit",
+                            class_name="w-full bg-orange-500 text-white py-2 rounded-lg font-semibold hover:bg-orange-600",
+                        ),
+                        on_submit=PaymentState.record_payment,
+                        reset_on_submit=True,
+                        class_name="mb-8 p-4 bg-white rounded-lg shadow-sm border",
+                    ),
+                ),
+                rx.el.div(
+                    rx.el.h2(
+                        "User Payment Status", class_name="text-xl font-semibold mb-4"
+                    ),
+                    rx.el.div(
+                        rx.el.table(
+                            rx.el.thead(
+                                rx.el.tr(
+                                    rx.el.th("User", class_name="px-4 py-2 text-left"),
+                                    rx.el.th(
+                                        "Status", class_name="px-4 py-2 text-left"
+                                    ),
+                                    rx.el.th(
+                                        "Days Until Due",
+                                        class_name="px-4 py-2 text-left",
+                                    ),
+                                    rx.el.th(
+                                        "Last Payment", class_name="px-4 py-2 text-left"
+                                    ),
+                                )
+                            ),
+                            rx.el.tbody(
+                                rx.foreach(
+                                    PaymentState.users_with_payment_status,
+                                    lambda user: rx.el.tr(
+                                        rx.el.td(
+                                            user["name"],
+                                            class_name="border-t px-4 py-2",
+                                        ),
+                                        rx.el.td(
+                                            payment_status_badge(user["status"]),
+                                            class_name="border-t px-4 py-2",
+                                        ),
+                                        rx.el.td(
+                                            user["days_until_due"].to_string(),
+                                            class_name="border-t px-4 py-2",
+                                        ),
+                                        rx.el.td(
+                                            user["last_payment_date"],
+                                            class_name="border-t px-4 py-2",
+                                        ),
+                                    ),
+                                )
+                            ),
+                            class_name="w-full text-left table-auto",
+                        ),
+                        class_name="overflow-x-auto bg-white rounded-lg shadow-sm border p-4",
+                    ),
+                ),
+                class_name="grid grid-cols-1 lg:grid-cols-2 gap-8",
+            ),
+        )
+    )
+
+
 app.add_page(index)
 app.add_page(login, route="/login")
 app.add_page(register, route="/register")
@@ -703,5 +892,11 @@ app.add_page(change_password_page, route="/change-password")
 app.add_page(events_page, route="/events", on_load=EventState.load_events)
 app.add_page(groups_page, route="/groups", on_load=GroupState.load_user_groups)
 app.add_page(my_events_page, route="/my-events", on_load=EventState.load_my_events)
+app.add_page(payments_page, route="/payments", on_load=PaymentState.load_my_payments)
 app.add_page(admin_events_page, route="/admin/events", on_load=EventState.load_events)
 app.add_page(admin_groups_page, route="/admin/groups", on_load=GroupState.load_groups)
+app.add_page(
+    admin_payments_page,
+    route="/admin/payments",
+    on_load=PaymentState.load_all_users_and_payments,
+)
