@@ -79,7 +79,7 @@ class LocalAuthState(rx.State):
         self.authenticated_user = None
         self.error_message = ""
         self.success_message = ""
-        return MyGoogleAuthState.logout
+        yield MyGoogleAuthState.logout
 
     @rx.var
     def is_admin(self) -> bool:
